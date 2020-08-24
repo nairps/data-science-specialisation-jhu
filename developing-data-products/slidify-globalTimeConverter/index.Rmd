@@ -1,0 +1,119 @@
+---
+title       : _globalTimeConverter_
+subtitle    : Course Project - Developing Data Products 
+author      : Preethy Nair
+job         : Coursera Data Science Specialization
+framework   : revealjs # {io2012, html5slides, shower, dzslides, ...}
+revealjs    :
+  theme: night
+  transition: fade
+highlighter : highlight.js  # {highlight.js, prettify, highlight}
+hitheme     : zenburn      # 
+widgets     : [mathjax]            # {mathjax, quiz, bootstrap}
+ext_widgets : {rCharts: [libraries/nvd3, libraries/leaflet]}
+mode        : selfcontained # {standalone, draft}
+knit        : slidify::knit2slides
+---
+
+
+## globalTimeConverter
+---------------------
+<center>
+*[globalTimeConverter](https://nairps.shinyapps.io/globaltimeconverter/): Convert times from one zone to another using Shiny*
+</center>
+### Course Project:
+### Developing Data Products
+Data Science Specialization - JHU at Coursera
+
+<font size="10"> Author: Preethy Nair </font>
+
+<medium> [GitHub](https://github.com/nairps) </medium>
+
+---  
+
+#### Main objective of this project is to build <font color="cyan">globalTimeConverter</font> that converts time from one zone to another
+- Here is a world map colored by continents
+
+```{r, message=FALSE, warning=FALSE, fig.width=12, fig.height=6}
+library(RColorBrewer); library(countrycode); library(maps); library(gridExtra)
+library(tidyverse); library(rworldmap); world_map <- map_data("world")
+world_map$Continent <- countrycode( sourcevar = world_map$region, 
+    origin = "country.name", destination = "continent" )
+world_map$Continent[which(world_map$region == "Antarctica")] <- "Antarctica"
+ggplot(world_map, aes(x = long, y = lat, group = group, fill = continent)) +
+  geom_polygon( fill = brewer.pal(n = 7, name = "Dark2")[as.numeric(as.factor(world_map$Continent))],
+    colour = "white")
+```
+
+
+---
+
+- Here is [an image from Wikipedia](https://upload.wikimedia.org/wikipedia/commons/8/88/World_Time_Zones_Map.png) showing global timezones
+- Each vertical segment has a different time
+- Time conversions are needed when working with people across the globe
+
+
+### <font color="cyan">_globalTimeConverter_</font>
+---------------------------
+
+#### <font color="cyan">_globalTimeConverter_</font> is a simple Shiny-based web application that converts time from one zone to another.
+
+#### <font color="cyan">Organisation of the UI</font>
+- **`Title panel`**: Title
+- **`Navigation bar`**: Navigation tabs for the (i) main application (ii) About page and (iii) Documentation page
+- **Side panel**: Location of the user input widgets: drop-down menus for `time zones` & widgets for providing date and time
+- **`Main panel`**:
+  - Displays HTML summary of the time conversion 
+  - ***Two tab panels***  
+        - 1. **A Table**:  All hourly times (N=24) for the selected date converted to the times of the selected zone
+        - 2. **A Summary**: A `verbal statement` for the time conversion
+
+
+
+---
+
+### <font color="cyan">_globalTimeConverter_</font>
+---------------------------
+
+- All the input widgets have been initialized with a starting value
+
+- Each session begins with the results for these initialized values displayed as output on the `main panel`.
+
+- This application is deployed on [shinyapps.io server](https://nairps.shinyapps.io/globalTimeConverter/) and the source code is freely available under MIT license from the [GitHub]((https://github.com/nairps/data-science-specialisation-jhu/developing-data-products/globalTimeConverter) 
+
+- A detailed documentation for the application is available on [GitHub pages](https://nairps.github.io/data-science-specialisation-jhu/developing-data-products/globalTimeConverter/).
+
+
+
+### Applications
+---------------------------
+- Useful for scheduling and attending global meetings and conferences
+- Helpful for people who work remotely from a different time zone    
+- Convenient for facilitating collaborations across time zones
+
+---
+
+
+
+#### Continent-wise country stats available for time conversions
+---------------------------
+
+
+```{r, fig.width=10, fig.height=5, message=FALSE, warning=FALSE}
+timeZones <- readRDS("data/time_zones.RDS")
+df <- data.frame(Total = do.call(rbind, lapply(timeZones, length)))
+df$Continent <- rownames(df); rownames(df) <- NULL
+df <- df %>% mutate(Continent = fct_reorder(Continent, desc(Total))) %>% arrange(Total)
+tz_table <- tableGrob(df)
+tz_plot <- ggplot(df, aes(x=Continent, y=Total, fill=Continent))+
+    geom_bar(stat = "identity")+ labs(y="No: of countries per continent for time conversions")+
+    theme(axis.text.x = element_text(angle=45, face="bold"))+ scale_fill_brewer(palette = "Paired")
+grid.arrange(tz_table,tz_plot , ncol=2, widths=c(1,2))
+
+```
+
+#### Thank You
+---------------------------
+
+
+

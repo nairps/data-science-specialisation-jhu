@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>_globalTimeConverter_</title>
+  <meta name="description" content="">
+  <meta name="author" content="Preethy Nair">
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="libraries/frameworks/revealjs/css/reveal.min.css">
+  <link rel="stylesheet" href="libraries/frameworks/revealjs/css/theme/night.css" id="theme">
+  <link rel="stylesheet" href="libraries/highlighters/highlight.js/css/zenburn.css" id="theme">
+  <!--[if lt IE 9]>
+  <script src="lib/js/html5shiv.js"></script>
+  <![endif]-->  <link rel="stylesheet" href = "assets/css/ribbons.css">
+
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+      <section class='' data-state='' id='slide-1'>
+  <h2>globalTimeConverter</h2>
+  <hr>
+
+<p><center>
+<em><a href="https://nairps.shinyapps.io/globaltimeconverter/">globalTimeConverter</a>: Convert times from one zone to another using Shiny</em>
+</center></p>
+
+<h3>Course Project:</h3>
+
+<h3>Developing Data Products</h3>
+
+<p>Data Science Specialization - JHU at Coursera</p>
+
+<p><font size="10"> Author: Preethy Nair </font></p>
+
+<p><medium> <a href="https://github.com/nairps">GitHub</a> </medium></p>
+
+</section>
+<section class='' data-state='' id='slide-2'>
+  <h4>Main objective of this project is to build <font color="cyan">globalTimeConverter</font> that converts time from one zone to another</h4>
+  <ul>
+<li>Here is a world map colored by continents</li>
+</ul>
+
+<pre><code class="r">library(RColorBrewer); library(countrycode); library(maps); library(gridExtra)
+library(tidyverse); library(rworldmap); world_map &lt;- map_data(&quot;world&quot;)
+world_map$Continent &lt;- countrycode( sourcevar = world_map$region, 
+    origin = &quot;country.name&quot;, destination = &quot;continent&quot; )
+world_map$Continent[which(world_map$region == &quot;Antarctica&quot;)] &lt;- &quot;Antarctica&quot;
+ggplot(world_map, aes(x = long, y = lat, group = group, fill = continent)) +
+  geom_polygon( fill = brewer.pal(n = 7, name = &quot;Dark2&quot;)[as.numeric(as.factor(world_map$Continent))],
+    colour = &quot;white&quot;)
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-1-1.png" alt="plot of chunk unnamed-chunk-1"></p>
+
+</section>
+<section class='' data-state='' id='slide-3'>
+  
+  <ul>
+<li>Here is <a href="https://upload.wikimedia.org/wikipedia/commons/8/88/World_Time_Zones_Map.png">an image from Wikipedia</a> showing global timezones</li>
+<li>Each vertical segment has a different time</li>
+<li>Time conversions are needed when working with people across the globe</li>
+</ul>
+
+<h3><font color="cyan"><em>globalTimeConverter</em></font></h3>
+
+<hr>
+
+<h4><font color="cyan"><em>globalTimeConverter</em></font> is a simple Shiny-based web application that converts time from one zone to another.</h4>
+
+<h4><font color="cyan">Organisation of the UI</font></h4>
+
+<ul>
+<li><strong><code>Title panel</code></strong>: Title</li>
+<li><strong><code>Navigation bar</code></strong>: Navigation tabs for the (i) main application (ii) About page and (iii) Documentation page</li>
+<li><strong>Side panel</strong>: Location of the user input widgets: drop-down menus for <code>time zones</code> &amp; widgets for providing date and time</li>
+<li><strong><code>Main panel</code></strong>:
+
+<ul>
+<li>Displays HTML summary of the time conversion </li>
+<li><strong><em>Two tab panels</em></strong><br>
+
+<ul>
+<li>1. <strong>A Table</strong>:  All hourly times (N=24) for the selected date converted to the times of the selected zone</li>
+<li>2. <strong>A Summary</strong>: A <code>verbal statement</code> for the time conversion</li>
+</ul></li>
+</ul></li>
+</ul>
+
+</section>
+<section class='' data-state='' id='slide-4'>
+  <h3><font color="cyan"><em>globalTimeConverter</em></font></h3>
+  <hr>
+
+<ul>
+<li><p>All the input widgets have been initialized with a starting value</p></li>
+<li><p>Each session begins with the results for these initialized values displayed as output on the <code>main panel</code>.</p></li>
+<li><p>This application is deployed on <a href="https://nairps.shinyapps.io/globalTimeConverter/">shinyapps.io server</a> and the source code is freely available under MIT license from the <a href="(https://github.com/nairps/data-science-specialisation-jhu/developing-data-products/globalTimeConverter">GitHub</a> </p></li>
+<li><p>A detailed documentation for the application is available on <a href="https://nairps.github.io/data-science-specialisation-jhu/developing-data-products/globalTimeConverter/">GitHub pages</a>.</p></li>
+</ul>
+
+<h3>Applications</h3>
+
+<hr>
+
+<ul>
+<li>Useful for scheduling and attending global meetings and conferences</li>
+<li>Helpful for people who work remotely from a different time zone<br></li>
+<li>Convenient for facilitating collaborations across time zones</li>
+</ul>
+
+</section>
+<section class='' data-state='' id='slide-5'>
+  <h4>Continent-wise country stats available for time conversions</h4>
+  <hr>
+
+<pre><code class="r">timeZones &lt;- readRDS(&quot;data/time_zones.RDS&quot;)
+df &lt;- data.frame(Total = do.call(rbind, lapply(timeZones, length)))
+df$Continent &lt;- rownames(df); rownames(df) &lt;- NULL
+df &lt;- df %&gt;% mutate(Continent = fct_reorder(Continent, desc(Total))) %&gt;% arrange(Total)
+tz_table &lt;- tableGrob(df)
+tz_plot &lt;- ggplot(df, aes(x=Continent, y=Total, fill=Continent))+
+    geom_bar(stat = &quot;identity&quot;)+ labs(y=&quot;No: of countries per continent for time conversions&quot;)+
+    theme(axis.text.x = element_text(angle=45, face=&quot;bold&quot;))+ scale_fill_brewer(palette = &quot;Paired&quot;)
+grid.arrange(tz_table,tz_plot , ncol=2, widths=c(1,2))
+</code></pre>
+
+<p><img src="assets/fig/unnamed-chunk-2-1.png" alt="plot of chunk unnamed-chunk-2"></p>
+
+<h4>Thank You</h4>
+
+<hr>
+
+</section>
+    </div>
+  </div>
+</body>
+  <script src="libraries/frameworks/revealjs/lib/js/head.min.js"></script>
+  <script src="libraries/frameworks/revealjs/js/reveal.min.js"></script>
+  <script>
+  // Full list of configuration options available here:
+  // https://github.com/hakimel/reveal.js#configuration
+  Reveal.initialize({
+    controls: true,
+    progress: true,
+    history: true,
+    center: true,
+    theme: Reveal.getQueryHash().theme || 'night', 
+    transition: Reveal.getQueryHash().transition || 'fade', 
+    dependencies: [
+    // Cross-browser shim that fully implements classList -
+    // https://github.com/eligrey/classList.js/
+      { src: 'libraries/frameworks/revealjs/lib/js/classList.js', condition: function() { return !document.body.classList;}},
+      // Zoom in and out with Alt+click
+      { src: 'libraries/frameworks/revealjs/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+      // Speaker notes
+      { src: 'libraries/frameworks/revealjs/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+      // Remote control your reveal.js presentation using a touch device
+      //{ src: 'libraries/frameworks/revealjs/plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+      ]
+  });
+  </script>  <!-- MathJax: Fall back to local if CDN offline but local image fonts are not supported (saves >100MB) -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [['$','$'], ['\\(','\\)']],
+      processEscapes: true
+    }
+  });
+</script>
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/2.0-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+<!-- <script src="https://c328740.ssl.cf1.rackcdn.com/mathjax/2.0-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script> -->
+<script>window.MathJax || document.write('<script type="text/x-mathjax-config">MathJax.Hub.Config({"HTML-CSS":{imageFont:null}});<\/script><script src="libraries/widgets/mathjax/MathJax.js?config=TeX-AMS-MML_HTMLorMML"><\/script>')
+</script>
+<!-- LOAD HIGHLIGHTER JS FILES -->
+<script src="libraries/highlighters/highlight.js/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+<!-- DONE LOADING HIGHLIGHTER JS FILES -->
+ 
+
+</html>
