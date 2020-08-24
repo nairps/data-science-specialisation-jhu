@@ -1,0 +1,79 @@
+---
+title: "Exploratory Plots"
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    number_sections: true
+  word_document:     
+    toc: true
+    toc_depth: 5
+  md_document:
+    variant: markdown_github
+  pdf_document: 
+    toc: true
+    toc_depth: 5
+    number_sections: true
+csl: ieee.csl    
+bibliography: ML.bib
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+#mode: selfcontained
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Setting the environment
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(caret)
+load("./data/Datasets.RData")
+```
+
+# Descriptive statistics
+```{r, data-loading, cache=TRUE} 
+summary(training_Data)
+```
+
+# Exploratory box-plots for all the features
+```{r box-plot, fig.width=15, fig.height=40}
+numeric_or_not <- sapply(training_Data, is.numeric)
+numeric_vars <- names(training_Data)[numeric_or_not]
+featurePlot(
+    x = training_Data %>% select(all_of(numeric_vars)),
+    y = training_Data$classe,
+    plot = "box",
+    mar =c(0,0,0,0),
+    ## Pass in options to bwplot()
+    scales = list(y = list(relation = "free")),
+    layout = c(6, round(length(numeric_vars)/5)),
+    auto.key = list(columns = 2),
+    par.strip.text = list(cex = 0.75)
+)
+```
+
+
+# Density plots for the features
+``````{r density-plot, fig.width=20, fig.height=40, cache=TRUE}
+featurePlot(
+  x = training_Data %>% select(all_of(numeric_vars)),
+  y = training_Data$classe,
+  plot = "density",
+  ## Pass in options to xyplot() to
+  ## make it prettier
+  scales = list(
+    x = list(relation = "free"),
+    y = list(relation = "free")
+  ),
+  adjust = 1.5,
+  pch = "|",
+  layout = c(6, round(length(numeric_vars) / 5)),
+  auto.key = list(columns = 5),
+  par.strip.text = list(cex = 0.75)
+)
+```
+
+The main project report can be found [here](index.html).
+
+ 

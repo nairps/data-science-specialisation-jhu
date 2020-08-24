@@ -1,0 +1,27 @@
+---
+title: "Descriptive Statistics for the features"
+output:
+  md_document:
+    variant: markdown_github
+  word_document:     
+  html_document:
+  pdf_document: 
+csl: ieee.csl    
+bibliography: ML.bib
+---
+
+
+
+```{r setup, include=FALSE, warning=FALSE}
+#mode: selfcontained
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Descriptive statistics
+```{r data-loading}
+load("./data/Datasets.RData")
+
+#descriptive statistics for the training data
+skimmed <- skimr::skim(training_Data)
+skimmed
+```

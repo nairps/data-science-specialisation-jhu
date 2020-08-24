@@ -1,0 +1,45 @@
+---
+title: "Getting and saving data"
+output:
+  md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+A preliminary check of the data was performed before downloading and saving the data. Some of the variables were having `"^#DIV/0!` as values as shown from the results of the below chunk. Hence, the data files have been read with the options to interpret those as NAs, as given in the next code chunk. The data files were then saved locally for further use.
+
+```{r preliminary-check-of-the-data}
+summary(read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+```
+
+
+```{r, echo=FALSE}
+#setwd("~/gettingData.Rmd")
+```
+
+```{r getting-data}
+# make the directory named "data" if it does not exist
+if (!file.exists("data")) {
+    dir.create("data")
+}
+fileUrlTrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+fileUrlTest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+fileDownload <- function(url) {
+    file <- paste0("./data/", basename(url))
+    if (!file.exists(file)) {
+        download.file(url, destfile = file, method = "curl")
+    }
+}
+
+# download and save training and test datasets
+fileDownload(fileUrlTrain)
+fileDownload(fileUrlTest)
+list.files("./data")
+```
+To go back to the main document, [click here](index.html)

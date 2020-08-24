@@ -1,0 +1,104 @@
+---
+title: "Data Inspection"
+output:
+  md_document:
+    variant: markdown_github
+  word_document:     
+    toc: true
+    toc_depth: 5
+  pdf_document: 
+    toc: true
+    toc_depth: 5
+    number_sections: true
+  html_document:
+    toc: true
+    toc_depth: 5
+    number_sections: true
+csl: ieee.csl    
+bibliography: ML.bib
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+
+
+
+# Data loading
+The downloaded data was loaded into the `R` environment.
+```{r, read-data}
+training_Data <- read.csv("./data/pml-training.csv",
+    na.strings = c("NA", "#DIV/0!"), 
+    stringsAsFactors = FALSE
+)
+testing_Data <- read.csv("./data/pml-testing.csv",
+    na.strings = c("NA", "#DIV/0!"), 
+    stringsAsFactors = FALSE
+)
+```
+
+
+
+# Data Inspection
+Next, data was examined in `R` using the below code block. 
+
+```{r data-inspection}
+dim(training_Data)
+dim(testing_Data)
+training_Data %>% glimpse()
+```
+
+
+```{r column-class}
+# showing the stats for the col class
+table(sapply(training_Data, class))
+
+# comparing column names of the testing and training datasets
+identical(names(training_Data), names(testing_Data))
+table(names(testing_Data) %in% names(training_Data))
+
+# checking which column names are different
+setdiff(names(testing_Data), names(training_Data))
+setdiff(names(training_Data), names(testing_Data))
+
+# checking the class of the columns
+col_class <- sapply(training_Data, class)
+col_class[col_class == "character"]
+
+# checking if the problem_id and X are the same for the test set
+identical(testing_Data$problem_id, testing_Data$X)
+dim(testing_Data)
+# excluding the problem_id 
+testing_Data$problem_id <- NULL
+
+dim(testing_Data)
+dim(training_Data)
+
+# "classe"  ==> is the performance of the barbell lifts
+# correctly and incorrectly in 5 different way as instructed
+# labels: classes A to E.
+
+# Converting the response variable to factor
+training_Data <- training_Data %>%
+  mutate_at(c("classe"), factor)
+table(training_Data$classe)
+
+```
+
+# Saving data
+```{r, saving-data}
+save(training_Data, testing_Data,
+  file = "./data/Datasets.RData"
+)
+```
+To go back to the project report, [click here](index.html)
+
+```{r, echo=FALSE}
+rm(list = ls())
+```

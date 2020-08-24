@@ -1,0 +1,592 @@
+---
+title: "Developing predictive classifiers using machine learning algorithms in R"
+author: Preethy Nair
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    number_sections: true
+  word_document:     
+    toc: true
+    toc_depth: 5
+  pdf_document: 
+    toc: true
+    toc_depth: 5
+    number_sections: true
+  md_document:
+    variant: markdown_github
+csl: ieee.csl
+bibliography: ML.bib
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Abstract
+In this project, the data from the accelerometers on the belt, forearm, arm, and dumbbell of 6 young men who participated in a weightlifting study are used to quantify how well they do dumbbell curls (the attribute `classe` in the training dataset).
+Three predictive models were built for `classe` prediction in RStudio using machine learning algorithms (recursive partitioning, random forest and boosting tree) available via the `caret` package; these algorithms were chosen based on their performance, robustness for overfitting and easiness with result interpretation.
+70% of the randomly split training data with a total of 35 attributes were used as input for building the classifiers with hyperparameter tuning grids and 10-fold cross-validation.
+The observed out-of-sample accuracy for the classifiers built using recursive partitioning tree, random forest, and gradient boosting were 91.2 %, 99.3 %, and 99.51 %. All three classifiers were used to make `classe` predictions for the course project; the predictions from the randomForest and boosted tree classifiers were identical.
+
+# Introduction
+Wearable technology constitutes non-invasive electronic devices with sensors worn close to the body. Wearables are primarily designed for real-time monitoring of body signals such as vitals, gait, and activity patterns. They are relatively inexpensive, widely adopted, and have applications in diverse fields: For example, activity trackers and smartwatches have gained popularity in the consumer electronics and healthcare fields due to their ability to quantify self-movement for finding behavioral patterns and improving health. Wearable technologies have also been extensively used in professional sports for analyzing athletic activity to provide real-time feedback.
+
+This project aims to build classifiers using machine learning algorithms available in `R` to predict the quality of dumbbell biceps curl (the variable `classe`). The training dataset for this project is collected from a human activity recognition experiment on weightlifting exercise performed by 6 participants [@noauthor_human_nodate]. Three out of the various machine learning (ML) algorithms implemented in `R` [@r_core_team_r:_2019] available via the `caret` package [@kuhn_building_2008], recursive partitioning and regression trees, Random forest and gradient boosting, have been used for building the classifiers with hyperparameter tuning and 10-fold cross-validation. As the predicted outcome is categorical, the metric used for classifier evaluation is accuracy. The classifiers were built in `RStudio`  [@rstudio_team_rstudio:_2016] and were used to make predictions on 20 different test cases.
+
+
+# Materials
+Six young (20-28 years) healthy male participants with little experience in weight lifting were asked to perform the unilateral dumbbell biceps curl correctly and incorrectly in 5 different ways in a controlled environment supervised by an experienced weight lifter. The HAR experiment collected data from the accelerometers on the belt, forearm, arm, and dumbbell to quantify how well they do the dumbbell biceps curl, defined by an attribute named `classe` [@noauthor_human_nodate].
+Five different classes (A-E) were defined for the quality of the dumbbell biceps curl (Table 1); Class A represents the specified execution of the exercise and the other four classes, B-E, represent common mistakes.
+
+
+
+```{r, echo=FALSE, eval=TRUE}
+knitr::kable(
+  caption = "Table 1: Quality of the dumbbell biceps curl, `classe`, as defined by the Human Activity Recognition experiment [@velloso_qualitative_2013; @noauthor_human_nodate]",
+  data.frame(
+    "classe" = c("A", "B", "C", "D", "E"),
+    "Definition" = c(
+      "Exactly as specificied",
+      "Throw elbows to the front",
+      "Lift dumbbell only halfway",
+      "Lower dumbbell only halfway",
+      "Throw hips to the front"
+    )
+  )
+)
+```
+
+
+# Methods
+
+## Setting up the environment for the analysis
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
+library(tidyverse)
+library(caret)
+library(corrplot)
+library(doParallel)
+library(gbm)
+library(gridExtra)
+library(grid)
+load("./data/Datasets.RData")
+```
+
+## Getting and saving the data
+
+The [training](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv) and the [test](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv) datasets were available for download from the web service, cloudFront. As the preliminary examination of the dataset using `R` [@r_core_team_r:_2019] indicated the presence of `"^#DIV/0!` as values for some of the variables, these datasets were read in using options to interpret `"^#DIV/0!` as NAs and saved on the local computer for later use. See the `R` code snippet implementing these and its output at [__getting the data__](01.gettingData.html).
+Altogether, the training dataset comprised `r nrow(training_Data)` observations on `r ncol(training_Data)` features. Of these, there were `r length(grep("belt|arm|dumbbell", names(training_Data)))` features on the belt, arm, and dumbbell.
+
+## Data preparation
+A detailed data inspection was performed in `R`.
+The variable `problem_id` in the testing dataset contains the same information as the variable, named `X`, in the testing dataset. Hence, this redundant variable `problem_id` is excluded from the testing dataset. The code chunk used for data inspection and its outputs can be accessed via [__Data Inspection__](02.DataInspection.html). The training and testing datasets were then saved as `R` objects and loaded into the `RStudio` environment for pre-processing and for building predictive models.
+Descriptive statistics and exploratory plots generated for the features are available from [__DescriptiveStats__](03.DescriptiveStats.html) and [__ExploratoryAnalysis__](04.ExploratoryAnalysis.html).
+
+
+
+### Data partitioning
+Data partitioning, one of the initial steps in building a machine learning model, is performed to ensure that the model is trained only using a part of the available dataset. The held out part, the validation dataset that was not used for building the model, is for evaluating the model and for understanding the generalisability of the model on new datasets. For this project, a single 70/30% stratified random split of the training data has been created using bootstrap resampling. 70% of the data was used for building the predictive model and the rest 30% of the data was used for evaluating the classifier performance.
+
+
+
+### Feature selection
+Feature selection is a process applied in machine learning to select the most relevant features for building predictive models. Feature selection can reduce the dimensionality of the data without information loss and scale down the training times. Different feature filtering approaches were applied for this project.
+As the descriptive statistics for the training data, [DescriptiveStats](03.DescriptiveStats.html), indicate features with many missing observations, a threshold of 60% for the missing observations was applied for a feature to be filtered off towards building the predictive model. See the sub-section on [__filtering features__](#missing).
+
+
+Next, the features that were not intuitive were removed from the dataset.
+In addition, the features/predictors with a low variance that may interfere with the modeling process in the resampling data were removed. Here, the variables with one or very few unique values with respect to the number of observations and having a large ratio for the frequencies of the most common value to that of the second most common value are classified as `low variance` predictors.
+Lastly, multicollinear features were filtered off as some of the ML algorithms (not classifiers) can perform poorly with highly correlated features.
+For this project, predictors with absolute values of pair-wise correlations above 0.75 constitute multicollinear features.
+
+
+### Data transformation
+Although data transformations are not very important for the classification trees as they are not linear, the numeric features have been centered and scaled within the `train` function before building the models.
+
+
+## Building models using Machine Learning algorithms
+Three different machine learning algorithms listed below were used in this project for model building.
+
+ 1. Recursive partitioning, available from the `R` library `rpart` [@rpart], which is an implementation of the Recursive partitioning for classification, regression and survival trees.
+ 2. Random Forest, implemented from the `R` library `randomForest` [@randomForest]
+ 3. Gradient boosting, from the `R` library `gbm` [@gbm]
+
+Random forest and Gradient boosting algorithms were chosen for building predictive models due to their performance and robustness for overfitting; the decision tree algorithm was selected for the easiness with the result interpretation. All the three model building processes in this project were tuned with the same `trainControl` call and use 10-fold cross-validations as the resampling scheme. Furthermore, hyperparameters for all the selected algorithms were optimized with grid search using algorithm-specific hyperparameter tuning grids generated for the `train` function.
+
+One of the main drawbacks of random forest and the gradient boosting algorithms was the lengthy model building process. For this reason, parallel processing using multiple cores was implemented using the `R` package, `doParalell`, to spread the computations involving predictive model tuning across these cores for computational efficiency. The `set.seed` function has been used just prior to the `train` function to ensure the use of the same resamples between calls to train.
+
+## Characterizing the performance of predictive models - in-sample stats
+
+The classifiers were evaluated using the performance metric, `accuracy`, which corresponds to the averaged accuracy rate from the 10-fold cross-validation iterations. In particular, the function `confusionMatrix` was used for assessing the performance metrics and summaries on the classification models.
+
+Additionally, functions from the `caret` package were used to compare the models using their resampling distributions. To this end, the same random number seed was set before the model building processes for all the three ML algorithms used in this project to ensure that the same resampling sets are compared between the models. Further, needle plots for variable importance were also generated for each built classifier to understand the impact of selected features on the model.
+
+## Model validation
+One major issue with using the accuracy estimates of the built models on the training set (in-sample accuracy) for model evaluation is that these metrics can be optimistic due to overfitting. Hence, out-of-sample error estimates were calculated using the test dataset (held-out dataset) to validate the models and to understand the generalisability of the models on new independent datasets. Accordingly, the classification models built using the training set (70% of the original training data) were used to generate the `classe` predictions on the test dataset (the rest 30%). Finally, for validating the classification models, the function `confusionMatrix` was used on these newly generated predictions to create the performance metrics and summaries.
+
+## Class prediction for the course project
+The predictive machine learning models built above were then applied to make predictions for the 20 test cases, available via the [cloudFront](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv).
+
+
+# Results
+## Data partitioning
+```{r data-partition}
+set.seed(825)
+trainIndex <- createDataPartition(
+    training_Data$classe, p = .7, 
+    list = FALSE, times = 1)
+trainPart <- training_Data[trainIndex, ]
+testPart <- training_Data[-trainIndex, ]
+dim(trainPart); dim(testPart)
+```
+
+
+
+## Feature Selection
+### Removing features based on missing values threshold {#missing}
+```{r filter-features-on-missing-value-thres}
+# estimating the proportion of missing values for each feature
+trainPart_Percent_Missing <- trainPart %>%
+    select(-classe) %>%
+    is.na() %>%
+    colMeans() * 100
+
+# dropping features exceeding 60 % missing value threshold
+trainPart <- trainPart[, !trainPart_Percent_Missing > 60]
+sum(complete.cases(trainPart))
+```
+
+Filtering based on the missing value threshold resulted in `r ncol(trainPart)` features for the model building processes. Imputation was not performed for this project as all the features were complete without any missing values after this filtering process.
+
+
+### Removing unintuitive features
+
+```{r}
+# removing features that do not add information
+length(names(trainPart))
+removeFeatures <- function(df) {
+    df <- df %>%
+        select(-c(
+            X, user_name, num_window, new_window,
+            raw_timestamp_part_1, raw_timestamp_part_2,
+            cvtd_timestamp, num_window
+        ))
+  return(df)
+}
+trainPart <- removeFeatures(trainPart)
+length(names(trainPart))
+table(sapply(trainPart, is.factor))
+```
+
+### Removing features with low variance
+
+```{r nearZeroVar}
+low_var_predictors <- trainPart %>% 
+    nearZeroVar(names = TRUE)
+trainPart <- trainPart %>% 
+    select(-all_of(low_var_predictors))
+dim(trainPart)
+```
+
+
+### Remove highly correlated features
+
+
+```{r correlation, fig.width=10, fig.height=10}
+# get numeric variables from the training data
+trainPart_Numeric <- trainPart %>% 
+    select_if(is.numeric)
+
+# calculate correlation matrix
+corrMatrix <- cor(as.matrix(trainPart_Numeric))
+
+# create correlation plot showing correlation coefficients
+corrplot(corrMatrix,
+    method = "number", type = "upper",
+    number.cex = .35, tl.cex = 0.5,
+    title = "Figure 1. Correlation plot for covariants",
+    mar = c(5, 4, 5, 2) + 0.1
+)
+
+# find highly correlated ( >0.75) variables
+highCorr <- findCorrelation(corrMatrix, cutoff = 0.75)
+
+# highly correlated variable names
+highCorVar <- names(trainPart_Numeric)[highCorr]
+
+# remove highly correlated variables
+trainPart <- trainPart %>% select(-all_of(highCorVar))
+dim(trainPart)
+```
+
+Altogether, `r length(highCorr)` highly correlated predictors (pair-wise absolute correlation > 0.75) were identified and excluded from building the predictive model resulting in a total of `r ncol(trainPart)` features towards building the ML models.
+
+
+
+### Exploratory plots after feature selection
+```{r feature-plot, message=FALSE, fig.width=10, fig.height=10}
+numeric_or_not <- sapply(trainPart, is.numeric)
+n_numeric <- sum(numeric_or_not)
+numeric_vars <- names(trainPart)[numeric_or_not]
+
+# boxplots
+featurePlot(
+    x = trainPart %>% select(all_of(numeric_vars)),
+    y = trainPart$classe,
+    plot = "box",
+    ## Pass in options to bwplot()
+    scales = list(y = list(relation = "free")),
+    layout = c(6, round(length(numeric_vars)/5)),
+    auto.key = list(columns = 2),
+    par.strip.text = list(cex = 0.75),
+    main = "Figure 2. Box plots for continuous variables"
+)
+```
+
+
+
+
+## Defining a training scheme for the ML algorithms
+
+```{r}
+# defining a training scheme for the ML algorithms
+fitControl <- trainControl( ## 10-fold CV
+    method = "cv",
+    # number of resampling iterations for CV
+    number = 10,
+    # Estimate class probabilities
+    classProbs = TRUE,
+    allowParallel = TRUE
+)
+```
+
+## Model building: Recursive Partitioning and Regression Trees
+
+```{r rpart-decision-tree-tuned-model-building}
+cl <- makeCluster(detectCores() - 1)
+registerDoParallel(cl)
+start_time <- Sys.time()
+rpartGrid <- expand.grid(cp = seq(0, 0.025, 0.005))
+set.seed(825)
+modFitRpart <- train(classe ~ .,
+    data = trainPart,
+    method = "rpart",
+    trControl = fitControl,
+    preProcess = c("center", "scale"),
+    tuneGrid = rpartGrid
+)
+stopCluster(cl)
+end_time <- Sys.time()
+end_time - start_time
+```
+
+
+## Model building: Random Forest
+```{r rf-tuned-model-building}
+cl2 <- makeCluster(detectCores() - 1)
+registerDoParallel(cl2)
+
+#profiling the random forest model building process using 
+start_time <- Sys.time()
+system.time({
+# Train a rf model
+set.seed(825)
+rfGrid <- expand.grid(mtry = seq(4, 8, 1))
+modFitRF <- train(classe ~ .,
+    data = trainPart,
+    method = "rf",
+    trControl = fitControl,
+    verbose = FALSE,
+    preProcess = c("center", "scale"),
+    tuneGrid = rfGrid
+)
+stopCluster(cl2)
+})
+end_time <- Sys.time()
+end_time - start_time
+```
+
+
+
+## Model building: Boosted trees
+```{r Gbm-tuned-model-building}
+gbmGrid <- expand.grid(
+    interaction.depth = 12:14,
+    n.trees = seq(700, 900, 100),
+    shrinkage = 0.1,
+    n.minobsinnode = 10
+)
+cl3 <- makeCluster(detectCores() - 1)
+registerDoParallel(cl3)
+start_time <- Sys.time()
+# Train a gbm model
+set.seed(825)
+modFitGbm <- train(classe ~ .,
+    method = "gbm",
+    trControl = fitControl,
+    data = trainPart,
+    verbose = FALSE,
+    preProcess = c("center", "scale"),
+    tuneGrid = gbmGrid
+)
+stopCluster(cl3)
+end_time <- Sys.time()
+end_time - start_time
+```
+
+
+## Train objects
+```{r }
+print(modFitRpart)
+print(modFitRF)
+print(modFitGbm)
+```
+
+## Best tuning parameters
+```{r}
+#best tuning parameter (mtry) for the random forest model
+modFitRF$bestTune
+
+#best tuning parameters for the gbm model
+modFitGbm$bestTune
+
+#best tuning parameter (cp: complexity parameter) for the rpart model
+modFitRpart$bestTune
+```
+
+
+
+
+## In-sample stats on model performances
+
+```{r}
+# confusion matrix for all the models based on 10-fold cross-validation
+lapply(list("Rpart" = modFitRpart, 
+            "RF" = modFitRF, 
+            "Gbm" =modFitGbm), 
+       function(x) confusionMatrix.train(x))
+```
+
+As the in-sample error estimates are calculated on the training set used to build the prediction model, this is an optimistic error metric for evaluating model performance.
+
+```{r model-performance-differences, fig.width=12, fig.height =8, warning=FALSE}
+resamps <- resamples(list(
+    GBM = modFitGbm,
+    Rpart = modFitRpart,
+    RF = modFitRF
+))
+# model comparison with boxplots
+modCompare <- bwplot(resamps,
+    layout = c(2, 1),
+    main = "b. Model performance comparisons",
+    ylab = "ML algorithms",
+    cex.main = 1
+)
+modFitRpartPlot <- plot(modFitRpart,
+    main = "RPart", cex.main = 1
+)
+modFitGbmPlot <- plot(modFitGbm,
+    main = "GBM", cex.main = 1
+)
+modFitRFPlot <- plot(modFitRF,
+    main = "RF", cex.main = 1
+)
+tunePlot <- arrangeGrob(
+    grobs = list(
+        modFitRpartPlot, modFitGbmPlot, modFitRFPlot
+    ),
+        top = textGrob("a. Effect of tuning factors on classification accuracy",
+        gp = gpar(fontsize = 15, fontface = "bold")
+    ),
+    nrow = 1,
+    padding = unit(2, "line")
+)
+modComparePlot <- arrangeGrob(grobs = list(modCompare))
+
+grid.arrange(tunePlot, modComparePlot,
+    ncol = 1, heights = c(1, 0.75),
+    left = textGrob("Figure 3",
+        gp = gpar(fontsize = 20, fontface = "bold")
+    ),
+    padding = unit(1, "line")
+)
+
+```
+
+
+**Based on Figure 3b boxplots, it is clear that the GBM model has the most accuracy, immediately followed by the random forest model**.
+
+## Variable importance
+Figure 4 visualizes the variable importance for the built models as needle plots.
+
+```{r random-forest-based-classe-prediction, fig.width=15}
+# variable importance plot for the rpart model
+rpartModImpPlot <- plot(varImp(modFitRpart),
+    top = 20, main = "Rpart"
+)
+# variable importance plot for the rf model
+rfModImpPlot <- plot(varImp(modFitRF),
+    top = 20, main = "Random Forest"
+)
+# variable importance plot for the gbm model
+gbmModImpPlot <- plot(varImp(modFitGbm),
+    top = 20, main = "Boosted Tree"
+)
+grid.arrange(rfModImpPlot, gbmModImpPlot, rpartModImpPlot,
+    ncol = 3,
+    top = textGrob("Figure 4. 20 most important variables",
+        gp = gpar(fontsize = 20, fontface = "bold")
+    )
+)
+```
+
+
+## Evaluating the models on the test data
+### Predicting on the validation data
+
+```{r, predicting-test-data}
+# classe predictions for the held out testPart
+testPart <- testPart %>% select(names(trainPart))
+predRFtest <- predict(modFitRF, testPart)
+predGbmtest <- predict(modFitGbm, testPart)
+predRparttest <- predict(modFitRpart, testPart)
+```
+
+### Out-of-sample stats
+Out-of-sample error is the error estimate on the held-out dataset, the dataset that was not used to build the prediction model, and is a realistic estimate of the model's performance on new datasets. For the current project, the out-of-sample accuracy estimates for the `rpart`, random forest, and `gbm` classifiers are 91.23%, 99.3%, and 99.51%.
+
+```{r, out-of-sample-stats }
+# out-of-sample-stats for the built models
+lapply(
+    list(
+        "Rpart-model" = predRparttest,
+        "RF-model" = predRFtest,
+        "Gbm-model" = predGbmtest
+    ),
+    function(x) confusionMatrix(data = x, 
+    reference = testPart$classe)
+)
+```
+
+
+# Model fitting using the whole training dataset with best tuning parameters
+
+Models are fitted with the best tuning parameters on the entire training dataset.
+
+```{r prepare-all-training-data}
+training_Data_sub <- training_Data %>% 
+    select(names(trainPart))
+sum(complete.cases(training_Data_sub))
+```
+
+** rpart model building with all training data **
+```{r, rpart-building-with-original-training-data}
+# rpart model building with all training data and the best cp
+cl <- makeCluster(detectCores() - 3)
+registerDoParallel(cl)
+start_time <- Sys.time()
+set.seed(825)
+modFitRpartAll <- train(classe ~ .,
+	 data = training_Data_sub,
+	method = "rpart",
+	trControl = fitControl,
+	preProcess = c("center", "scale"),
+	tuneGrid = expand.grid(cp=c(0))
+)
+stopCluster(cl)
+end_time <- Sys.time()
+end_time - start_time
+```
+
+
+** rf model building using all training data ** 
+```{r, rf-with-all-training-data}
+# rf model building using all training data and the best mtry
+cl <- makeCluster(detectCores() - 3)
+registerDoParallel(cl)
+start_time <- Sys.time()
+set.seed(825)
+modFitRFAll <- train(classe ~ .,
+	 data = training_Data_sub,
+	method = "rf",
+	trControl = fitControl,
+	verbose = FALSE,
+	preProcess = c("center", "scale"),
+	tuneGrid = expand.grid(mtry = 6)
+)
+stopCluster(cl)
+end_time <- Sys.time()
+end_time - start_time
+```
+
+
+
+```{r aggregate-gbm}
+# gbm model building using all training data and the best tuning parameters
+cl <- makeCluster(detectCores() - 3)
+registerDoParallel(cl)
+start_time <- Sys.time()
+set.seed(825)
+modFitGbmAll <- train(classe ~ .,
+    data = training_Data_sub,
+	method = "gbm",
+	trControl = fitControl,
+	verbose = FALSE,
+	preProcess = c("center", "scale"),
+	tuneGrid = expand.grid(
+		interaction.depth = 14,
+		n.trees = 900,
+		shrinkage = 0.1,
+	n.minobsinnode = 10
+	)
+)
+stopCluster(cl)
+end_time <- Sys.time()
+end_time - start_time
+```
+
+## In-sample accuracies for the aggregate models
+```{r}
+lapply(
+    list(
+        "Rpart-All-model" = modFitRpartAll,
+        "RF-All-model" = modFitRFAll,
+        "Gbm-All-model" = modFitGbmAll
+    ),
+    function(x) x$results$Accuracy
+)
+```
+# Classe predictions for the course project
+The `classe` prediction for the data to be submitted for the Course Project was performed using this code chunk.
+
+```{r}
+testing_Data <- testing_Data %>% select(names(trainPart)[!(names(trainPart) %in% "classe")])
+#classe prediction for the testing_Data using:
+# 1. rpart, 2. randomForest & 3. boosting tree models
+#
+# aggregate classe prediction for the testing_Data 
+lapply(
+    list(
+        "Rpart-model" = modFitRpart,
+        "Rpart-All-model" = modFitRpartAll,
+        "RF-model" = modFitRF,
+        "RF-All-model" = modFitRFAll,
+        "Gbm-model" = modFitGbm,
+        "Gbm-All-model" = modFitGbmAll
+    ),
+    function(x) predict(x, testing_Data)
+)
+```
+
+
+# Conclusions
+
+The main objective this project was to build classifiers to predict the quality of dumbbell curls based on a human activity recognition experiment on weightlifting. The original training dataset was randomly partitioned using a 70:30 split into a training set (70% split) used for building the models, and a held-out test set (the 30% split) for evaluating the model performances. 35 out of 159 features were selected from the training set and transformed using centering and scaling before building the models. Altogether, three classification models have been built with hyperparameter tuning and 10-fold cross-validations using the ML algorithms (random forest, gradient boosting and recursive partitioning) available via the `R` package, `caret`. The out-of-sample accuracy for the gradient boosting, random forest, and recursive partitioning models were respectively 99.5 %, 99.3 %, 91.2%. All the built models were used for the course project `classe` prediction; the random Forest and boosting tree models provided identical predictions.
+
+
+# References
+
+
+
+
